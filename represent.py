@@ -69,6 +69,70 @@ def represent(M_, W_, rows, cols):
 
   return V
 
+def representTraces(sample, V_):
+
+  Y = {}
+  for trace in sample:
+    if trace not in Y:
+      first = trace[0]
+      ncols = V_[first].shape[0] // 2
+      left  = V_[first].reshape(2, ncols)
+      for i in range(1, len(trace)):
+        current = trace[i]
+        right   = V_[current].reshape(2, ncols)
+        left    = compose5(left, right)
+
+      Y[trace] = list(left.reshape(2 * ncols,))
+
+  return Y
+
+#def representTraces(sample, V_):
+#
+#  Y = {}
+#  for trace in sample:
+#    if trace not in Y:
+#      first = trace[0]
+#      ncols = V_[first].shape[0] // 2
+#      left  = V_[first].reshape(2, ncols)
+#      acc   = np.zeros((2, ncols))
+#      for i in range(1, len(trace)):
+#        current = trace[i]
+#        right   = V_[current].reshape(2, ncols)
+#        acc    += compose5(left, right)
+#        left    = right
+#
+#      Y[trace] = list(acc.reshape(2 * ncols,))
+#
+#  return Y
+
+def compose1(left, right):
+  return left @ left.transpose() @ right
+
+def compose2(left, right): # candidate
+  return left @ right.transpose() @ right
+
+def compose3(left, right):
+  res = left.transpose() @ left @ right.transpose()
+  return res.transpose()
+
+def compose4(left, right):
+  res = left.transpose() @ right @ right.transpose()
+  return res.transpose()
+
+def compose5(left, right):
+  T_l = np.array([[1, 0], [0, 0]])
+  T_r = np.array([[0, 0], [0, 1]])
+  return (T_l @ left) + (T_r @ right)
+
+def compose6(left, right):
+  ncols = left.shape[1]
+  # xxx to be continued.
+  # we want ATB to produce a <2,n> matrix such that:
+  # -- the first row encodes  the probabilities of a segment "ab" being followed any activity (e.g., "abd"), and
+  # -- the second row encodes the probabilities of a segment "ab" being preceeded by any activity (e.g., "+ab")
+  T = 0
+  return left @ T @ right
+
 def distanceMatrix(V):
   V_ = {}
   for row in V:
@@ -109,6 +173,17 @@ def saveRepAsText(V, rows, cols, filename):
 
   saveAsText('\n'.join(content), filename)
 
+def saveTraceRepAsText(Y, rows, cols, filename):
+
+  rows_ = rows + [STOP]
+  header  = ['both'] + ['_{0}'.format(col) for col in cols] + ['{0}_'.format(row) for row in rows]
+  content = ['\t'.join(header)]
+  for trace in Y:
+    buffer = [trace] + [str(v) for v in Y[trace]]
+    content.append('\t'.join(buffer))
+
+  saveAsText('\n'.join(content), filename)
+
 def main(filename):
 
   tsprint('Recovering log from file {0}.pkl'.format(filename))
@@ -123,11 +198,24 @@ def main(filename):
   # step 3: creates the row-normalised matrix
   W_ = normalise(W, cols, rows)
 
-  # step 4: creates representations (by collating M_ and W_ images)
+  # step 4: creates representations for each activity (by collating M_ and W_ images)
+  # -- including START and STOP activities
   V = represent(M_, W_, rows, cols)
 
   # step 5: computes a distance matrix for learned representations
   V_, D = distanceMatrix(V)
+
+
+  # after Apr 2nd meeting, we wanted to explore representations for traces
+
+  # first try: traces represented in the same space as activities, using average as composition
+  # -- issue : in example 2, *ABCD+ gets the same representation as *ACBD+
+  #    cause : average is based on sum, which is a symmetric operation;
+  #    soln .: maybe some asymmetric operation will be sensitive to the order of activities?
+
+  # second try: traces represented in the same space as activities, using matrix multiplication
+  # -- idea: cast activity (1, 2N + 2)-vectors as (2, N+1) matrices, and (A o B) = AA'B
+  Y = representTraces(sample, V_)
 
   tsprint('Saving results.')
 
@@ -138,6 +226,7 @@ def main(filename):
   serialise(V,  'V')
   serialise(V_, 'V_')
   serialise(dict(D),  'D')
+  serialise(Y, 'Y')
 
   saveMatrixAsText(M,  rows, cols, 'M.csv')
   saveMatrixAsText(W,  cols, rows, 'W.csv',  'right')
@@ -145,6 +234,7 @@ def main(filename):
   saveMatrixAsText(W_, cols, rows, 'W_.csv', 'right')
 
   saveRepAsText(V, rows, cols, 'V.csv')
+  saveTraceRepAsText(Y, rows, cols, 'Y.csv')
 
   nodes = rows + [STOP]
   saveMatrixAsText(D, nodes, nodes, 'D.csv', 'dist')
