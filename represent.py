@@ -69,69 +69,51 @@ def represent(M_, W_, rows, cols):
 
   return V
 
-def representTraces(sample, V_):
 
-  Y = {}
+
+
+
+
+
+
+def representTraces(sample, M_, V_, cols):
+
+  k = len(cols) # the number of columns needed to represent X_ or _X transitions
+  P = {} # joint probability of each trace
+  Y = {} # derived representation for each trace
+
   for trace in sample:
     if trace not in Y:
-      first = trace[0]
-      ncols = V_[first].shape[0] // 2
-      left  = V_[first].reshape(2, ncols)
-      for i in range(1, len(trace)):
-        current = trace[i]
-        right   = V_[current].reshape(2, ncols)
-        left    = compose5(left, right)
 
-      Y[trace] = list(left.reshape(2 * ncols,))
+      # finds the joint probability of all segments of the current trace
+      p = 1.0
+      P[START] = p
+      for i in range(len(trace) - 1):
+        p = p * M_[trace[i]][trace[i+1]]
+        P[trace[:i+2]] = p
+
+      # finds the representation of the current trace
+      last = np.array([1 for _ in range(2*k)])
+      for i in range(len(trace)):
+
+        # accounts for the current activity into the joint representation
+        p = P[trace[:i+1]]
+        common = np.array([p for _ in range(k)])
+        left  = np.hstack((common, last[k:]))          # the last  k cols of the left-activity,  filled with p
+        right = np.hstack((V_[trace[i]][0:k], common)) # the first k cols of the right-activity, filled with p
+        last   = left @ np.diag(right)
+
+      Y[trace] = last
 
   return Y
 
-#def representTraces(sample, V_):
-#
-#  Y = {}
-#  for trace in sample:
-#    if trace not in Y:
-#      first = trace[0]
-#      ncols = V_[first].shape[0] // 2
-#      left  = V_[first].reshape(2, ncols)
-#      acc   = np.zeros((2, ncols))
-#      for i in range(1, len(trace)):
-#        current = trace[i]
-#        right   = V_[current].reshape(2, ncols)
-#        acc    += compose5(left, right)
-#        left    = right
-#
-#      Y[trace] = list(acc.reshape(2 * ncols,))
-#
-#  return Y
 
-def compose1(left, right):
-  return left @ left.transpose() @ right
 
-def compose2(left, right): # candidate
-  return left @ right.transpose() @ right
 
-def compose3(left, right):
-  res = left.transpose() @ left @ right.transpose()
-  return res.transpose()
 
-def compose4(left, right):
-  res = left.transpose() @ right @ right.transpose()
-  return res.transpose()
 
-def compose5(left, right):
-  T_l = np.array([[1, 0], [0, 0]])
-  T_r = np.array([[0, 0], [0, 1]])
-  return (T_l @ left) + (T_r @ right)
 
-def compose6(left, right):
-  ncols = left.shape[1]
-  # xxx to be continued.
-  # we want ATB to produce a <2,n> matrix such that:
-  # -- the first row encodes  the probabilities of a segment "ab" being followed any activity (e.g., "abd"), and
-  # -- the second row encodes the probabilities of a segment "ab" being preceeded by any activity (e.g., "+ab")
-  T = 0
-  return left @ T @ right
+
 
 def distanceMatrix(V):
   V_ = {}
@@ -215,7 +197,8 @@ def main(filename):
 
   # second try: traces represented in the same space as activities, using matrix multiplication
   # -- idea: cast activity (1, 2N + 2)-vectors as (2, N+1) matrices, and (A o B) = AA'B
-  Y = representTraces(sample, V_)
+  Y = representTraces(sample, M_, V_, cols)
+  #Y = {}
 
   tsprint('Saving results.')
 
