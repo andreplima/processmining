@@ -19,21 +19,24 @@ STOP  = '+'
 
 def template_hub(template):
 
-  if(template == 'E1'):
-    res = model1
+  if(template   == 'E1'):
+    res = model01
 
   elif(template == 'E2'):
-    res = model2
+    res = model02
 
   elif(template == 'E3'):
-    res = model3
+    res = model03
+
+  elif(template == 'X1'):
+    res = model10
 
   else:
     raise ValueError('No template process named {0}'.format(template))
 
   return res
 
-def model1(ss, alpha = 0.5):
+def model01(ss, alpha = 0.5):
   # state machine from example 1
 
   sample = []
@@ -44,7 +47,7 @@ def model1(ss, alpha = 0.5):
 
     while state != STOP:
 
-      if(state == '*'):
+      if(state == START):
         state = 'A'
 
       elif(state == 'A'):
@@ -57,7 +60,7 @@ def model1(ss, alpha = 0.5):
         state = 'D'
 
       elif(state == 'D'):
-        state = '+'
+        state = STOP
 
       else:
         raise ValueError('Error during model sampling')
@@ -68,7 +71,7 @@ def model1(ss, alpha = 0.5):
 
   return sample
 
-def model2(ss, alpha = 0.5):
+def model02(ss, alpha = 0.5):
   # state machine from example 1
 
   sample = []
@@ -79,7 +82,7 @@ def model2(ss, alpha = 0.5):
 
     while state != STOP:
 
-      if(state == '*'):
+      if(state == START):
         state = 'A'
 
       elif(state == 'A'):
@@ -92,7 +95,7 @@ def model2(ss, alpha = 0.5):
         state = 'D'
 
       elif(state == 'D'):
-        state = '+'
+        state = STOP
 
       else:
         raise ValueError('Error during model sampling')
@@ -103,7 +106,7 @@ def model2(ss, alpha = 0.5):
 
   return sample
 
-def model3(ss, alpha = 0.2):
+def model03(ss, alpha = 0.2):
   # state machine from example 1
 
   sample = []
@@ -114,7 +117,7 @@ def model3(ss, alpha = 0.2):
 
     while state != STOP:
 
-      if(state == '*'):
+      if(state == START):
         state = 'A'
 
       elif(state == 'A'):
@@ -127,7 +130,36 @@ def model3(ss, alpha = 0.2):
         state = 'A'
 
       elif(state == 'D'):
-        state = '+'
+        state = STOP
+
+      else:
+        raise ValueError('Error during model sampling')
+
+      trace.append(state)
+
+    sample.append(''.join(trace))
+
+  return sample
+
+def model10(ss, alpha = 0.5):
+  # state machine from example 1
+
+  sample = []
+  for _ in range(ss):
+
+    state = START
+    trace = [state]
+
+    while state != STOP:
+
+      if(state == START):
+        state = 'A'
+
+      elif(state == 'A'):
+        if(random() < alpha):
+          state = 'A'
+        else:
+          state = STOP
 
       else:
         raise ValueError('Error during model sampling')
