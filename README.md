@@ -1,2 +1,2 @@
 # processmining
-Representation learning for (co-)clustering logs in process mining (collab with Matheus/Sara)
+Representation learning for (co-)clustering traces in process mining (in collaboration with Mateus and Sara)
