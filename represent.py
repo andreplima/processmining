@@ -15,7 +15,6 @@ import numpy as np
 from   copy          import deepcopy
 from   collections   import defaultdict
 from   sharedDefs    import tsprint, saveAsText, serialise, deserialise
-from   scipy.spatial import distance
 
 START = '*'
 STOP  = '+'
@@ -69,51 +68,47 @@ def represent(M_, W_, rows, cols):
 
   return V
 
+def representTraces(sample_, M_, V_, rows, cols):
 
+  # inserts the activities in the sample, for improved inspection of results
+  sample = (['*{0}+'.format(a) for a in rows] +
+            ['*{0}+'.format(a) for a in cols] +
+            sample_ +
+            ['*{0}+'.format(a) for a in sample_]
+           )
 
+  Y = {}
+  for trace_ in sample:
+    trace = trace_[1:-1]
 
-
-
-
-
-def representTraces(sample, M_, V_, cols):
-
-  k = len(cols) # the number of columns needed to represent X_ or _X transitions
-  P = {} # joint probability of each trace
-  Y = {} # derived representation for each trace
-
-  for trace in sample:
     if trace not in Y:
 
-      # finds the joint probability of all segments of the current trace
-      p = 1.0
-      P[START] = p
-      for i in range(len(trace) - 1):
-        p = p * M_[trace[i]][trace[i+1]]
-        P[trace[:i+2]] = p
+      # initialises working variables
+      k    = len(V_[trace[0]]) // 2 # length of the "half-vectors" _v (precedes v) and v_ (succeeds v)
+      peta = 1.0                    # the accumulated probability of the left-vector eta
+      last = 'eta'                  # the name of the first left-vector, represented by eta
+                                    # (this is a hypothetical activity; not supposed to exist in the alphabet)
 
-      # finds the representation of the current trace
-      last = np.array([1 for _ in range(2*k)])
+      # the initial left-vector, as [ <k ones> | <last k values of the first activity> ]
+      eta  = np.hstack((peta * np.ones(k), V_[trace[0]][k:]))
+
+      # obtains the matrix P with probabilities of transitions by complementing the M_ matrix
+      P = deepcopy(M_)
+      P[last][trace[0]] = 1.0
+
+      # iterates from left to right to obtain composition of representations
+      # (e.g., ABCD is obtained by ( ( ( (eta o A) o B) o C) o D)
       for i in range(len(trace)):
+        p     = P[last][trace[i]]
+        peta  = peta * p
+        left  = np.hstack((peta * np.ones(k), eta[k:]))
+        right = np.hstack((V_[trace[i]][0:k], p * np.ones(k)))
+        eta   = left @ np.diag(right)
+        last  = trace[i]
 
-        # accounts for the current activity into the joint representation
-        p = P[trace[:i+1]]
-        common = np.array([p for _ in range(k)])
-        left  = np.hstack((common, last[k:]))          # the last  k cols of the left-activity,  filled with p
-        right = np.hstack((V_[trace[i]][0:k], common)) # the first k cols of the right-activity, filled with p
-        last   = left @ np.diag(right)
-
-      Y[trace] = last
+      Y[trace] = eta
 
   return Y
-
-
-
-
-
-
-
-
 
 def distanceMatrix(V):
   V_ = {}
@@ -126,7 +121,6 @@ def distanceMatrix(V):
   for i in range(ub - 1):
     for j in range(i, ub):
       val = np.linalg.norm(V_[rows[i]] - V_[rows[j]])
-      #val = distance.minkowski(V_[rows[i]], V_[rows[j]], 1)
       D[rows[i]][rows[j]] = val
       D[rows[j]][rows[i]] = val
 
@@ -190,15 +184,16 @@ def main(filename):
 
   # after Apr 2nd meeting, we wanted to explore representations for traces
 
-  # first try: traces represented in the same space as activities, using average as composition
-  # -- issue : in example 2, *ABCD+ gets the same representation as *ACBD+
-  #    cause : average is based on sum, which is a symmetric operation;
-  #    soln .: maybe some asymmetric operation will be sensitive to the order of activities?
+  # first try : traces represented in the same space as activities, using average as composition
+  # -- issue .: in example 2, *ABCD+ gets the same representation as *ACBD+
+  #            also, the trace representation do not keep the meaning of each dimension
+  #    cause .: average is based on sum, which, being a symmetric operation, destroys order
+  #    soln ..: maybe some asymmetric operation will be sensitive to the order of activities?
 
   # second try: traces represented in the same space as activities, using matrix multiplication
-  # -- idea: cast activity (1, 2N + 2)-vectors as (2, N+1) matrices, and (A o B) = AA'B
-  Y = representTraces(sample, M_, V_, cols)
-  #Y = {}
+  #             meaning is expected to remain valid for both activity and trace representations
+
+  Y = representTraces(sample, M_, V_, rows, cols)
 
   tsprint('Saving results.')
 

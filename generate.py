@@ -11,32 +11,34 @@
 """
 
 import sys
-from random     import random
+from random     import seed, random
 from sharedDefs import tsprint, stimestamp, stimediff, saveAsText, serialise
 
 START = '*'
 STOP  = '+'
 
+ECO_SEED = 23
+
 def template_hub(template):
 
   if(template   == 'E1'):
-    res = model01
+    res = modelE1
 
   elif(template == 'E2'):
-    res = model02
+    res = modelE2
 
   elif(template == 'E3'):
-    res = model03
+    res = modelE3
 
   elif(template == 'X1'):
-    res = model10
+    res = modelX1
 
   else:
     raise ValueError('No template process named {0}'.format(template))
 
   return res
 
-def model01(ss, alpha = 0.5):
+def modelE1(ss, alpha = 0.5):
   # state machine from example 1
 
   sample = []
@@ -71,7 +73,7 @@ def model01(ss, alpha = 0.5):
 
   return sample
 
-def model02(ss, alpha = 0.5):
+def modelE2(ss, alpha = 0.5):
   # state machine from example 1
 
   sample = []
@@ -106,7 +108,7 @@ def model02(ss, alpha = 0.5):
 
   return sample
 
-def model03(ss, alpha = 0.2):
+def modelE3(ss, alpha = 0.2):
   # state machine from example 1
 
   sample = []
@@ -141,7 +143,7 @@ def model03(ss, alpha = 0.2):
 
   return sample
 
-def model10(ss, alpha = 0.5):
+def modelX1(ss, alpha = 0.5):
   # state machine from example 1
 
   sample = []
@@ -172,10 +174,15 @@ def model10(ss, alpha = 0.5):
 
 def main(template, ss):
 
+  # initialises the random number generator
+  seed(ECO_SEED)
+
+  # generates a sample of the underlying model (i.e., a finite state machine)
   tsprint('Generating {0} samples from template {1}.'.format(ss, template))
   generator = template_hub(template)
-  sample = generator(ss)
+  sample    = generator(ss)
 
+  # saves the results
   tsprint('Saving results.')
   saveAsText('\n'.join(sample), 'sample.csv')
   serialise(sample, 'sample')
